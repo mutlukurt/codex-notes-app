@@ -336,39 +336,76 @@ body {
         overflow: hidden;
     }
     
+    /* Tablet sidebar - always visible */
     .sidebar-mobile {
-        width: 300px;
+        width: 280px;
         position: relative;
-        transform: translateX(0);
+        transform: translateX(0) !important;
+        z-index: 10;
+    }
+    
+    /* Tablet main content */
+    .editor-bg {
+        flex: 1;
+        width: calc(100% - 280px);
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    /* Hide mobile overlay and menu button on tablet */
+    .mobile-overlay {
+        display: none !important;
+    }
+    
+    #mobileMenuBtn,
+    #closeSidebarBtn {
+        display: none !important;
+    }
+    
+    /* Mobile header - hide on tablet */
+    .md\:hidden {
+        display: none !important;
     }
     
     /* Tablet toolbar */
     #toolbar {
         gap: 8px;
         padding: 12px;
+        flex-wrap: wrap;
     }
     
     .toolbar-btn {
         padding: 10px;
         min-width: 40px;
         min-height: 40px;
+        flex-shrink: 0;
     }
     
     /* Tablet note title */
     #noteTitle {
-        font-size: 2.5rem;
+        font-size: 2.25rem !important;
+        line-height: 1.2;
     }
     
     /* Tablet editor content */
     .editor-content {
         font-size: 16px;
-        padding: 24px;
-        min-height: 400px;
+        padding: 20px;
+        min-height: 350px;
     }
     
     /* Tablet padding adjustments */
+    .p-4 {
+        padding: 1.25rem !important;
+    }
+    
     .p-8 {
         padding: 1.5rem !important;
+    }
+    
+    .px-4 {
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
     }
     
     .px-8 {
@@ -376,13 +413,39 @@ body {
         padding-right: 1.5rem !important;
     }
     
-    .max-w-4xl {
-        max-width: 90% !important;
+    .py-2 {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
     }
     
-    /* Hide mobile menu button on tablet */
-    .md\:hidden {
-        display: none !important;
+    .py-4 {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    .max-w-4xl {
+        max-width: 95% !important;
+    }
+    
+    /* Tablet layout fixes */
+    .flex {
+        display: flex;
+    }
+    
+    .flex-1 {
+        flex: 1;
+    }
+    
+    .flex-col {
+        flex-direction: column;
+    }
+    
+    .h-full {
+        height: 100%;
+    }
+    
+    .overflow-y-auto {
+        overflow-y: auto;
     }
 }
 
@@ -393,16 +456,37 @@ body {
         overflow: hidden;
     }
     
+    /* Desktop sidebar - always visible */
     .sidebar-mobile {
         width: 320px;
         position: relative;
-        transform: translateX(0);
+        transform: translateX(0) !important;
+    }
+    
+    /* Desktop main content */
+    .editor-bg {
+        flex: 1;
+        width: calc(100% - 320px);
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    /* Hide mobile elements on desktop */
+    .mobile-overlay,
+    #mobileMenuBtn,
+    #closeSidebarBtn {
+        display: none !important;
+    }
+    
+    .md\:hidden {
+        display: none !important;
     }
     
     /* Desktop toolbar */
     #toolbar {
         gap: 12px;
         padding: 16px;
+        flex-wrap: wrap;
     }
     
     .toolbar-btn {
@@ -413,7 +497,7 @@ body {
     
     /* Desktop note title */
     #noteTitle {
-        font-size: 3rem;
+        font-size: 3rem !important;
     }
     
     /* Desktop editor content */
@@ -421,11 +505,6 @@ body {
         font-size: 18px;
         padding: 32px;
         min-height: 500px;
-    }
-    
-    /* Hide mobile menu button on desktop */
-    .md\:hidden {
-        display: none !important;
     }
 }
 
