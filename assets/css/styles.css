@@ -308,6 +308,39 @@ body {
         font-size: 1.125rem;
     }
     
+    /* Mobile folder/note actions */
+    .group .opacity-0 {
+        opacity: 1 !important; /* Always show action buttons on mobile */
+    }
+    
+    .group button {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 6px !important;
+    }
+    
+    .group button svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+    
+    /* Mobile folder items */
+    .group .flex.items-center.gap-2 {
+        gap: 4px !important;
+    }
+    
+    /* Mobile note delete button */
+    .group .flex-shrink-0 button {
+        padding: 4px !important;
+        min-width: 28px;
+        min-height: 28px;
+    }
+    
+    .group .flex-shrink-0 button svg {
+        width: 14px !important;
+        height: 14px !important;
+    }
+    
     /* Mobile padding adjustments */
     .p-8 {
         padding: 1rem !important;
@@ -427,6 +460,39 @@ body {
         max-width: 95% !important;
     }
     
+    /* Tablet folder/note actions */
+    .group .opacity-0 {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    
+    .group:hover .opacity-0 {
+        opacity: 1;
+    }
+    
+    .group button {
+        min-width: 36px;
+        min-height: 36px;
+        padding: 8px !important;
+    }
+    
+    .group button svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
+    /* Tablet note delete button */
+    .group .flex-shrink-0 button {
+        padding: 6px !important;
+        min-width: 32px;
+        min-height: 32px;
+    }
+    
+    .group .flex-shrink-0 button svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+    
     /* Tablet layout fixes */
     .flex {
         display: flex;
@@ -505,6 +571,16 @@ body {
         font-size: 18px;
         padding: 32px;
         min-height: 500px;
+    }
+    
+    /* Desktop folder/note actions - keep hover behavior */
+    .group .opacity-0 {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .group:hover .opacity-0 {
+        opacity: 1;
     }
 }
 
