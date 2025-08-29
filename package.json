@@ -1,0 +1,59 @@
+{
+  "name": "codex-notes-app",
+  "version": "2.0.0",
+  "description": "A local-first, modern notes application with rich text editing and folder organization",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx live-server --port=3000 --open=/index.html",
+    "dev": "npx live-server --port=3000 --open=/index.html --watch=assets/",
+    "build": "echo 'No build process needed for static HTML app'",
+    "test": "echo 'No tests specified'",
+    "lint": "echo 'No linting configured'",
+    "serve": "python3 -m http.server 3000"
+  },
+  "keywords": [
+    "notes",
+    "notion",
+    "local-first",
+    "rich-text-editor",
+    "javascript",
+    "html5",
+    "css3",
+    "tailwindcss",
+    "productivity",
+    "writing",
+    "organization",
+    "folders",
+    "markdown",
+    "contenteditable"
+  ],
+  "author": {
+    "name": "Mutlu Kurt"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mutlukurt/codex-notes-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mutlukurt/codex-notes-app/issues"
+  },
+  "homepage": "https://github.com/mutlukurt/codex-notes-app#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ],
+  "files": [
+    "index.html",
+    "assets/",
+    "README.md",
+    "LICENSE"
+  ]
+}
