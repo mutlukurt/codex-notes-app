@@ -15,8 +15,6 @@
 
 **[✨ Try Codex Live Demo](https://mutlukurt.github.io/codex-notes-app/)**
 
-![Codex Preview](assets/images/hero-preview.png)
-
 ## ✨ Features
 
 ### 🎨 **Modern UI/UX Design**
