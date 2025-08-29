@@ -11,6 +11,10 @@
 
 **🔒 100% Private** • **📱 Fully Responsive** • **⚡ Lightning Fast** • **🎨 Modern Design** • **📄 PDF Export**
 
+## 🚀 Live Preview
+
+**[✨ Try Codex Live Demo](https://mutlukurt.github.io/codex-notes-app/)**
+
 ![Codex Preview](assets/images/hero-preview.png)
 
 ## ✨ Features
