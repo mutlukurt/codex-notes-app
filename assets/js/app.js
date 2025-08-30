@@ -197,6 +197,18 @@ class CodexApp {
         exportPdfBtn?.addEventListener('click', () => {
             this.exportToPDF();
         });
+        
+        // Image Upload button
+        const imageUploadBtn = document.getElementById('imageUploadBtn');
+        const imageInput = document.getElementById('imageInput');
+        
+        imageUploadBtn?.addEventListener('click', () => {
+            imageInput?.click();
+        });
+        
+        imageInput?.addEventListener('change', (e) => {
+            this.handleImageUpload(e);
+        });
     }
     
     /**
@@ -644,6 +656,140 @@ class CodexApp {
     }
     
     /**
+     * Handle image upload from file input
+     * @param {Event} event - The file input change event
+     */
+    async handleImageUpload(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        // Ensure editor has focus
+        editor.focus();
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert(`${file.name} is not a valid image file.`);
+                continue;
+            }
+            
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`${file.name} is too large. Maximum file size is 5MB.`);
+                continue;
+            }
+            
+            try {
+                await this.insertImage(file);
+            } catch (error) {
+                console.error('Error inserting image:', error);
+                alert(`Error inserting ${file.name}. Please try again.`);
+            }
+        }
+        
+        // Clear the input
+        event.target.value = '';
+    }
+    
+    /**
+     * Insert an image into the editor
+     * @param {File} file - The image file to insert
+     */
+    async insertImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    const base64Data = e.target.result;
+                    const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    
+                    // Create image element
+                    const img = document.createElement('img');
+                    img.src = base64Data;
+                    img.alt = file.name;
+                    img.id = imageId;
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    img.style.margin = '10px 0';
+                    img.style.borderRadius = '8px';
+                    img.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                    img.draggable = true;
+                    
+                    // Add resize handles
+                    img.addEventListener('click', () => {
+                        this.showImageResizeDialog(img);
+                    });
+                    
+                    // Insert image at current cursor position
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        range.deleteContents();
+                        range.insertNode(img);
+                        
+                        // Move cursor after image
+                        range.setStartAfter(img);
+                        range.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    } else {
+                        // If no selection, append to editor
+                        const editor = document.getElementById('editor');
+                        editor.appendChild(img);
+                    }
+                    
+                    // Save the note
+                    this.saveCurrentNote();
+                    
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            reader.onerror = () => {
+                reject(new Error('Failed to read file'));
+            };
+            
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    /**
+     * Show image resize dialog
+     * @param {HTMLImageElement} img - The image element to resize
+     */
+    showImageResizeDialog(img) {
+        const currentWidth = img.style.width || 'auto';
+        const sizes = [
+            { label: 'Small (25%)', value: '25%' },
+            { label: 'Medium (50%)', value: '50%' },
+            { label: 'Large (75%)', value: '75%' },
+            { label: 'Full Width (100%)', value: '100%' },
+            { label: 'Original Size', value: 'auto' }
+        ];
+        
+        let sizeOptions = sizes.map((size, index) => 
+            `${index + 1}. ${size.label}`
+        ).join('\n');
+        
+        const choice = prompt(`Choose image size:\n\n${sizeOptions}\n\nEnter number (1-5):`);
+        
+        if (choice && choice >= 1 && choice <= 5) {
+            const selectedSize = sizes[choice - 1];
+            img.style.width = selectedSize.value;
+            img.style.maxWidth = selectedSize.value === 'auto' ? 'none' : '100%';
+            this.saveCurrentNote();
+        }
+    }
+    
+    /**
      * Update toolbar button states based on current selection
      */
     updateToolbarState() {
@@ -802,21 +948,27 @@ class CodexApp {
                 })}</p>
             </div>
             <div style="font-size: 16px; line-height: 1.8;">
-                ${this.sanitizeContentForPDF(note.content)}
+                ${await this.sanitizeContentForPDF(note.content)}
             </div>
         `;
         
         document.body.appendChild(tempContainer);
         
         try {
-            // Convert to canvas
+            // Wait for images to load
+            await this.waitForImages(tempContainer);
+            
+            // Convert to canvas with high quality settings
             const canvas = await html2canvas(tempContainer, {
-                scale: 2,
+                scale: 3, // Higher scale for better quality
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
                 width: 794,
-                windowWidth: 794
+                windowWidth: 794,
+                imageTimeout: 15000, // Wait longer for images
+                logging: false,
+                removeContainer: false
             });
             
             // Create PDF
@@ -827,15 +979,16 @@ class CodexApp {
             let heightLeft = imgHeight;
             let position = 0;
             
-            // Add first page
-            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+            // Add first page with high quality
+            const imgData = canvas.toDataURL('image/jpeg', 0.95); // High quality JPEG
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
             heightLeft -= pageHeight;
             
             // Add additional pages if needed
             while (heightLeft >= 0) {
                 position = heightLeft - imgHeight;
                 pdf.addPage();
-                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
                 heightLeft -= pageHeight;
             }
             
@@ -850,11 +1003,33 @@ class CodexApp {
     }
     
     /**
+     * Wait for all images in container to load
+     * @param {HTMLElement} container - Container with images
+     */
+    async waitForImages(container) {
+        const images = container.querySelectorAll('img');
+        const imagePromises = Array.from(images).map(img => {
+            return new Promise((resolve) => {
+                if (img.complete) {
+                    resolve();
+                } else {
+                    img.onload = resolve;
+                    img.onerror = resolve; // Resolve even on error to not block PDF generation
+                    // Timeout after 10 seconds
+                    setTimeout(resolve, 10000);
+                }
+            });
+        });
+        
+        await Promise.all(imagePromises);
+    }
+    
+    /**
      * Sanitize HTML content for PDF export
      * @param {string} content - HTML content to sanitize
-     * @returns {string} Sanitized content
+     * @returns {Promise<string>} Sanitized content
      */
-    sanitizeContentForPDF(content) {
+    async sanitizeContentForPDF(content) {
         if (!content) return '<p>Bu not boş.</p>';
         
         // Replace HTML tags with PDF-friendly styling
@@ -874,14 +1049,43 @@ class CodexApp {
             .replace(/<b[^>]*>/gi, '<strong style="font-weight: 700;">')
             .replace(/<em[^>]*>/gi, '<em style="font-style: italic;">')
             .replace(/<i[^>]*>/gi, '<em style="font-style: italic;">')
-            // Remove any remaining style attributes that might conflict
-            .replace(/style="[^"]*"/gi, (match) => {
-                // Keep color styles, remove others that might conflict
-                if (match.includes('color:')) {
-                    return match;
-                }
-                return '';
-            });
+            .replace(/<u[^>]*>/gi, '<u style="text-decoration: underline;">');
+        
+        // Handle images with proper PDF styling
+        sanitized = sanitized.replace(/<img[^>]*>/gi, (imgTag) => {
+            // Extract src, alt, and style attributes
+            const srcMatch = imgTag.match(/src="([^"]*)"/);
+            const altMatch = imgTag.match(/alt="([^"]*)"/);
+            const styleMatch = imgTag.match(/style="([^"]*)"/);
+            
+            if (!srcMatch) return imgTag;
+            
+            const src = srcMatch[1];
+            const alt = altMatch ? altMatch[1] : '';
+            let style = styleMatch ? styleMatch[1] : '';
+            
+            // Ensure proper PDF styling for images
+            const pdfStyle = `
+                max-width: 100%;
+                height: auto;
+                margin: 15px 0;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                display: block;
+                ${style}
+            `.replace(/\s+/g, ' ').trim();
+            
+            return `<img src="${src}" alt="${alt}" style="${pdfStyle}">`;
+        });
+        
+        // Remove any remaining problematic style attributes
+        sanitized = sanitized.replace(/style="[^"]*"/gi, (match) => {
+            // Keep essential styles for images and colors
+            if (match.includes('max-width') || match.includes('color:') || match.includes('margin') || match.includes('border-radius')) {
+                return match;
+            }
+            return '';
+        });
         
         return sanitized;
     }
