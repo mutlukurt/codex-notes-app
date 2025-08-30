@@ -143,11 +143,32 @@ class CodexApp {
             this.saveCurrentNote();
         });
         
+        // Update toolbar state when editor gains focus
+        editor?.addEventListener('focus', () => {
+            this.updateToolbarState();
+        });
+        
+        // Update toolbar state when clicking in editor
+        editor?.addEventListener('click', () => {
+            setTimeout(() => {
+                this.updateToolbarState();
+            }, 10);
+        });
+        
+        // Update toolbar state on keyup for immediate feedback
+        editor?.addEventListener('keyup', () => {
+            this.updateToolbarState();
+        });
+        
         // Handle paste events to clean up formatting
         editor?.addEventListener('paste', (e) => {
             e.preventDefault();
             const text = e.clipboardData.getData('text/plain');
             document.execCommand('insertText', false, text);
+            // Update toolbar state after paste
+            setTimeout(() => {
+                this.updateToolbarState();
+            }, 20);
         });
     }
     
@@ -180,33 +201,42 @@ class CodexApp {
      */
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
+            // Only handle shortcuts when editor is focused
+            const editor = document.getElementById('editor');
+            if (!editor || !editor.contains(document.activeElement) && document.activeElement !== editor) {
+                return;
+            }
+            
             if (e.ctrlKey || e.metaKey) {
                 switch(e.key.toLowerCase()) {
                     case 'b':
                         e.preventDefault();
-                        document.execCommand('bold');
-                        this.updateToolbarState();
-                        this.saveCurrentNote();
+                        this.toggleFormat('bold');
                         break;
                     case 'i':
                         e.preventDefault();
-                        document.execCommand('italic');
-                        this.updateToolbarState();
-                        this.saveCurrentNote();
+                        this.toggleFormat('italic');
                         break;
                     case 'u':
                         e.preventDefault();
-                        document.execCommand('underline');
-                        this.updateToolbarState();
-                        this.saveCurrentNote();
+                        this.toggleFormat('underline');
                         break;
                 }
             }
         });
         
-        // Update toolbar state on selection change
+        // Update toolbar state on selection change with debounce
+        let selectionTimeout;
         document.addEventListener('selectionchange', () => {
-            this.updateToolbarState();
+            clearTimeout(selectionTimeout);
+            selectionTimeout = setTimeout(() => {
+                // Only update if selection is within editor
+                const selection = window.getSelection();
+                const editor = document.getElementById('editor');
+                if (selection.rangeCount > 0 && editor && editor.contains(selection.anchorNode)) {
+                    this.updateToolbarState();
+                }
+            }, 50);
         });
     }
     
@@ -545,11 +575,38 @@ class CodexApp {
         
         if (command === 'formatBlock') {
             document.execCommand(command, false, value);
+        } else if (command === 'bold' || command === 'italic' || command === 'underline') {
+            this.toggleFormat(command);
+            return; // toggleFormat handles state update and saving
         } else if (command) {
             document.execCommand(command, false, value);
         }
         
         this.updateToolbarState();
+        this.saveCurrentNote();
+    }
+    
+    /**
+     * Toggle text formatting (bold, italic, underline) with proper state management
+     * @param {string} command - The formatting command to toggle
+     */
+    toggleFormat(command) {
+        // Ensure we have focus on the editor
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        // Focus editor if not already focused
+        if (document.activeElement !== editor && !editor.contains(document.activeElement)) {
+            editor.focus();
+        }
+        
+        // Execute the formatting command
+        document.execCommand(command, false, null);
+        
+        // Force update toolbar state immediately
+        this.updateToolbarState();
+        
+        // Save the note
         this.saveCurrentNote();
     }
     
@@ -566,22 +623,45 @@ class CodexApp {
      * Update toolbar button states based on current selection
      */
     updateToolbarState() {
-        const buttons = document.querySelectorAll('.toolbar-btn');
-        buttons.forEach(btn => {
-            const command = btn.dataset.command;
-            if (command && document.queryCommandState) {
-                try {
-                    if (document.queryCommandState(command)) {
-                        btn.classList.add('active');
-                    } else {
+        // Ensure we're in the editor context
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        // Add a small delay to ensure DOM is updated
+        setTimeout(() => {
+            const buttons = document.querySelectorAll('.toolbar-btn');
+            buttons.forEach(btn => {
+                const command = btn.dataset.command;
+                if (command) {
+                    try {
+                        let isActive = false;
+                        
+                        // Special handling for formatting commands
+                        if (command === 'bold' || command === 'italic' || command === 'underline') {
+                            // Check if command is active in current selection/cursor position
+                            isActive = document.queryCommandState(command);
+                        } else if (command === 'formatBlock') {
+                            // Handle format block commands (headings)
+                            const value = btn.dataset.value;
+                            isActive = document.queryCommandValue('formatBlock') === value;
+                        } else {
+                            // Default behavior for other commands
+                            isActive = document.queryCommandState(command);
+                        }
+                        
+                        // Update button appearance
+                        if (isActive) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    } catch (e) {
+                        // Some commands might not be supported, remove active state
                         btn.classList.remove('active');
                     }
-                } catch (e) {
-                    // Some commands might not be supported
-                    btn.classList.remove('active');
                 }
-            }
-        });
+            });
+        }, 10);
     }
     
     /**
