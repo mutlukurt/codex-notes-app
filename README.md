@@ -13,7 +13,7 @@
 
 ## 🚀 Live Preview
 
-**[✨ Try Codex Live Demo](https://mutlukurt.github.io/codex-notes-app/)**
+**[✨ Try Codex Live Demo](https://mutlukurt.github.io/codex/)**
 
 ## ✨ Features
 
