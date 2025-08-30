@@ -610,10 +610,14 @@ class CodexApp {
         const value = button.dataset.value;
         
         if (command === 'formatBlock') {
-            document.execCommand(command, false, value);
+            this.toggleHeading(value);
+            return; // toggleHeading handles state update and saving
         } else if (command === 'bold' || command === 'italic' || command === 'underline') {
             this.toggleFormat(command);
             return; // toggleFormat handles state update and saving
+        } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+            this.toggleList(command);
+            return; // toggleList handles state update and saving
         } else if (command) {
             document.execCommand(command, false, value);
         }
@@ -638,6 +642,196 @@ class CodexApp {
         
         // Execute the formatting command
         document.execCommand(command, false, null);
+        
+        // Force update toolbar state immediately
+        this.updateToolbarState();
+        
+        // Save the note
+        this.saveCurrentNote();
+    }
+    
+    /**
+     * Toggle list formatting (ordered/unordered) with proper state management
+     * @param {string} command - The list command to toggle (insertUnorderedList or insertOrderedList)
+     */
+    toggleList(command) {
+        // Ensure we have focus on the editor
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        // Focus editor if not already focused
+        if (document.activeElement !== editor && !editor.contains(document.activeElement)) {
+            editor.focus();
+        }
+        
+        // Get current selection
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) {
+            // If no selection, create a range at the end of editor
+            const range = document.createRange();
+            range.selectNodeContents(editor);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+        
+        const range = selection.getRangeAt(0);
+        const container = range.commonAncestorContainer;
+        const parentElement = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+        
+        // Find if we're in a list item or list
+        const currentListItem = parentElement.closest('li');
+        const currentList = parentElement.closest('ul, ol');
+        
+        // Determine list types
+        const isInUnorderedList = currentList && currentList.tagName.toLowerCase() === 'ul';
+        const isInOrderedList = currentList && currentList.tagName.toLowerCase() === 'ol';
+        const requestingUnorderedList = command === 'insertUnorderedList';
+        
+        if (currentListItem) {
+            // We're in a list item
+            if ((isInUnorderedList && requestingUnorderedList) || (isInOrderedList && !requestingUnorderedList)) {
+                // Same type of list - remove it
+                this.removeListFormatting(currentListItem, currentList);
+            } else {
+                // Different type - convert it
+                this.convertListType(currentList, requestingUnorderedList ? 'ul' : 'ol');
+            }
+        } else {
+            // We're not in a list - create one
+            this.createList(command);
+        }
+        
+        // Force update toolbar state immediately
+        setTimeout(() => {
+            this.updateToolbarState();
+        }, 10);
+        
+        // Save the note
+        this.saveCurrentNote();
+    }
+    
+    /**
+     * Create a new list from current text/selection
+     * @param {string} command - The list command (insertUnorderedList or insertOrderedList)
+     */
+    createList(command) {
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
+        
+        // Get the current text content
+        let textContent = '';
+        if (range.collapsed) {
+            // No selection - get current line/paragraph
+            const container = range.commonAncestorContainer;
+            const parentElement = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+            const currentParagraph = parentElement.closest('p, div, h1, h2, h3, h4, h5, h6') || parentElement;
+            textContent = currentParagraph.textContent || 'New item';
+        } else {
+            // Has selection - use selected text
+            textContent = range.toString() || 'New item';
+        }
+        
+        // Create the list structure
+        const listType = command === 'insertUnorderedList' ? 'ul' : 'ol';
+        const newList = document.createElement(listType);
+        const newListItem = document.createElement('li');
+        newListItem.textContent = textContent.trim() || 'New item';
+        newList.appendChild(newListItem);
+        
+        // Replace current content with list
+        if (range.collapsed) {
+            const container = range.commonAncestorContainer;
+            const parentElement = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+            const currentBlock = parentElement.closest('p, div, h1, h2, h3, h4, h5, h6') || parentElement;
+            
+            if (currentBlock && currentBlock.parentNode) {
+                currentBlock.parentNode.replaceChild(newList, currentBlock);
+            } else {
+                range.deleteContents();
+                range.insertNode(newList);
+            }
+        } else {
+            range.deleteContents();
+            range.insertNode(newList);
+        }
+        
+        // Set cursor in the list item
+        const newRange = document.createRange();
+        newRange.selectNodeContents(newListItem);
+        newRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+    }
+    
+    /**
+     * Remove list formatting and convert to paragraph
+     * @param {HTMLElement} listItem - The list item to convert
+     * @param {HTMLElement} list - The parent list
+     */
+    removeListFormatting(listItem, list) {
+        const newP = document.createElement('p');
+        newP.innerHTML = listItem.innerHTML || '<br>';
+        
+        if (list.children.length === 1) {
+            // Only one item - replace entire list
+            list.parentNode.replaceChild(newP, list);
+        } else {
+            // Multiple items - replace just this item
+            listItem.parentNode.replaceChild(newP, listItem);
+        }
+        
+        // Set cursor in new paragraph
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(newP);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+    
+    /**
+     * Convert list from one type to another
+     * @param {HTMLElement} list - The list to convert
+     * @param {string} newType - New list type ('ul' or 'ol')
+     */
+    convertListType(list, newType) {
+        const newList = document.createElement(newType);
+        
+        // Move all list items to new list
+        while (list.firstChild) {
+            newList.appendChild(list.firstChild);
+        }
+        
+        // Replace old list with new list
+        list.parentNode.replaceChild(newList, list);
+    }
+    
+    /**
+     * Toggle heading formatting (H1, H2, H3) with proper state management
+     * @param {string} headingValue - The heading value (h1, h2, h3)
+     */
+    toggleHeading(headingValue) {
+        // Ensure we have focus on the editor
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+        
+        // Focus editor if not already focused
+        if (document.activeElement !== editor && !editor.contains(document.activeElement)) {
+            editor.focus();
+        }
+        
+        // Check if the heading is currently active
+        const currentFormat = document.queryCommandValue('formatBlock');
+        const isActive = currentFormat.toLowerCase() === headingValue.toLowerCase();
+        
+        if (isActive) {
+            // If heading is active, convert to normal paragraph
+            document.execCommand('formatBlock', false, 'p');
+        } else {
+            // If heading is not active, apply the heading
+            document.execCommand('formatBlock', false, headingValue);
+        }
         
         // Force update toolbar state immediately
         this.updateToolbarState();
@@ -686,9 +880,17 @@ class CodexApp {
             
             try {
                 await this.insertImage(file);
+                // Show success toast on mobile
+                if (window.innerWidth <= 768) {
+                    this.showToast(`📸 ${file.name} eklendi`, 'success');
+                }
             } catch (error) {
                 console.error('Error inserting image:', error);
-                alert(`Error inserting ${file.name}. Please try again.`);
+                if (window.innerWidth <= 768) {
+                    this.showToast(`❌ ${file.name} eklenemedi`, 'error');
+                } else {
+                    alert(`Error inserting ${file.name}. Please try again.`);
+                }
             }
         }
         
@@ -714,11 +916,36 @@ class CodexApp {
                     img.src = base64Data;
                     img.alt = file.name;
                     img.id = imageId;
-                    img.style.maxWidth = '100%';
-                    img.style.height = 'auto';
-                    img.style.margin = '10px 0';
-                    img.style.borderRadius = '8px';
-                    img.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                    
+                    // Apply responsive styling based on device
+                    const isMobile = window.innerWidth <= 768;
+                    const isTablet = window.innerWidth > 768 && window.innerWidth <= 1024;
+                    
+                    if (isMobile) {
+                        // Mobile-optimized styling
+                        img.style.width = '100%';
+                        img.style.maxWidth = '100%';
+                        img.style.height = 'auto';
+                        img.style.margin = '15px 0';
+                        img.style.borderRadius = '12px';
+                        img.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    } else if (isTablet) {
+                        // Tablet-optimized styling
+                        img.style.maxWidth = '100%';
+                        img.style.width = '75%';
+                        img.style.height = 'auto';
+                        img.style.margin = '12px 0';
+                        img.style.borderRadius = '10px';
+                        img.style.boxShadow = '0 3px 10px rgba(0, 0, 0, 0.1)';
+                    } else {
+                        // Desktop styling
+                        img.style.maxWidth = '100%';
+                        img.style.height = 'auto';
+                        img.style.margin = '10px 0';
+                        img.style.borderRadius = '8px';
+                        img.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                    }
+                    
                     img.draggable = true;
                     
                     // Add resize handles
@@ -766,7 +993,47 @@ class CodexApp {
      * @param {HTMLImageElement} img - The image element to resize
      */
     showImageResizeDialog(img) {
-        const currentWidth = img.style.width || 'auto';
+        // Check if we're on mobile/tablet
+        const isMobile = window.innerWidth <= 768;
+        const isTablet = window.innerWidth > 768 && window.innerWidth <= 1024;
+        
+        if (isMobile) {
+            this.showMobileImageDialog(img);
+        } else {
+            this.showDesktopImageDialog(img);
+        }
+    }
+    
+    /**
+     * Show mobile-friendly image resize dialog
+     * @param {HTMLImageElement} img - The image element to resize
+     */
+    showMobileImageDialog(img) {
+        const sizes = [
+            { label: '📱 Mobile Fit', value: '100%', description: 'Full width on mobile' },
+            { label: '🖼️ Medium', value: '75%', description: 'Good for most content' },
+            { label: '🔍 Small', value: '50%', description: 'Compact size' },
+            { label: '📐 Original', value: 'auto', description: 'Original dimensions' }
+        ];
+        
+        let sizeOptions = sizes.map((size, index) => 
+            `${index + 1}. ${size.label}\n   ${size.description}`
+        ).join('\n\n');
+        
+        const choice = prompt(`📸 Resim Boyutu Seç:\n\n${sizeOptions}\n\nNumara gir (1-4):`);
+        
+        if (choice && choice >= 1 && choice <= 4) {
+            const selectedSize = sizes[choice - 1];
+            this.applyImageSize(img, selectedSize.value);
+            this.showToast(`Resim boyutu: ${selectedSize.label}`, 'success');
+        }
+    }
+    
+    /**
+     * Show desktop image resize dialog
+     * @param {HTMLImageElement} img - The image element to resize
+     */
+    showDesktopImageDialog(img) {
         const sizes = [
             { label: 'Small (25%)', value: '25%' },
             { label: 'Medium (50%)', value: '50%' },
@@ -783,10 +1050,41 @@ class CodexApp {
         
         if (choice && choice >= 1 && choice <= 5) {
             const selectedSize = sizes[choice - 1];
-            img.style.width = selectedSize.value;
-            img.style.maxWidth = selectedSize.value === 'auto' ? 'none' : '100%';
-            this.saveCurrentNote();
+            this.applyImageSize(img, selectedSize.value);
         }
+    }
+    
+    /**
+     * Apply size to image with mobile-specific handling
+     * @param {HTMLImageElement} img - The image element
+     * @param {string} sizeValue - The size value to apply
+     */
+    applyImageSize(img, sizeValue) {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            // On mobile, ensure images are always responsive
+            if (sizeValue === '100%') {
+                img.style.width = '100%';
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+            } else if (sizeValue === 'auto') {
+                img.style.width = 'auto';
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+            } else {
+                img.style.width = sizeValue;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+            }
+        } else {
+            // Desktop behavior
+            img.style.width = sizeValue;
+            img.style.maxWidth = sizeValue === 'auto' ? 'none' : '100%';
+            img.style.height = 'auto';
+        }
+        
+        this.saveCurrentNote();
     }
     
     /**
@@ -810,6 +1108,21 @@ class CodexApp {
                         if (command === 'bold' || command === 'italic' || command === 'underline') {
                             // Check if command is active in current selection/cursor position
                             isActive = document.queryCommandState(command);
+                        } else if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
+                            // Handle list commands - check DOM instead of queryCommandState
+                            const selection = window.getSelection();
+                            if (selection.rangeCount > 0) {
+                                const range = selection.getRangeAt(0);
+                                const container = range.commonAncestorContainer;
+                                const parentElement = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
+                                const currentList = parentElement.closest('ul, ol');
+                                
+                                if (command === 'insertUnorderedList') {
+                                    isActive = currentList && currentList.tagName.toLowerCase() === 'ul';
+                                } else if (command === 'insertOrderedList') {
+                                    isActive = currentList && currentList.tagName.toLowerCase() === 'ol';
+                                }
+                            }
                         } else if (command === 'formatBlock') {
                             // Handle format block commands (headings)
                             const value = btn.dataset.value;
