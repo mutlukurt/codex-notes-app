@@ -18,6 +18,9 @@ class CodexApp {
             activeNoteId: null
         };
         
+        // Timeout for debounced operations
+        this.renderTimeout = null;
+        
         this.init();
     }
     
@@ -557,12 +560,33 @@ class CodexApp {
             
             // Only save if there are changes
             if (activeNote.title !== newTitle || activeNote.content !== newContent) {
+                const titleChanged = activeNote.title !== newTitle;
+                
                 activeNote.title = newTitle;
                 activeNote.content = newContent;
                 this.saveData();
-                this.renderFolders();
+                
+                // Only re-render sidebar if title changed (to update the displayed title)
+                if (titleChanged) {
+                    this.debouncedRenderFolders();
+                }
             }
         }
+    }
+    
+    /**
+     * Debounced version of renderFolders to prevent flickering
+     */
+    debouncedRenderFolders() {
+        // Clear existing timeout
+        if (this.renderTimeout) {
+            clearTimeout(this.renderTimeout);
+        }
+        
+        // Set new timeout
+        this.renderTimeout = setTimeout(() => {
+            this.renderFolders();
+        }, 300);
     }
     
     /**
